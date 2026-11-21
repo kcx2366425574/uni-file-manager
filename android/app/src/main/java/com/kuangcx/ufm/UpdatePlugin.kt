@@ -56,47 +56,69 @@ class UpdatePlugin : Plugin() {
         }
     }
 
+    /**
+     * Enqueues the APK with DownloadManager and returns immediately. The earlier version polled
+     * DownloadManager inside bridge.execute for up to ten minutes, which occupied the bridge's
+     * single handler thread and made every later plugin call hang — verified on device: a
+     * subsequent Update.download never reached the native layer.
+     *
+     * Completion is reported back through a plugin event; the page listens for it.
+     */
     @PluginMethod
     fun download(call: PluginCall) {
         val apkUrl = call.getString("apkUrl") ?: return call.reject("apkUrl required", "E_NOENT")
         val fileName = call.getString("fileName") ?: "update.apk"
-        bridge.execute {
-            try {
-                val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                val request = DownloadManager.Request(Uri.parse(apkUrl)).apply {
-                    setTitle("文件管理器更新")
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                    setMimeType("application/vnd.android.package-archive")
-                }
-                val id = dm.enqueue(request)
-                val target = File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    fileName
-                )
-                var waited = 0L
-                while (waited < MAX_WAIT_MS) {
-                    dm.query(DownloadManager.Query().setFilterById(id))?.use { c ->
-                        if (c.moveToFirst()) {
-                            when (c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
-                                DownloadManager.STATUS_SUCCESSFUL -> {
-                                    call.resolve(JSObject().apply { put("path", target.absolutePath) })
-                                    return@execute
-                                }
-                                DownloadManager.STATUS_FAILED -> {
-                                    call.reject("下载失败", "E_IO"); return@execute
-                                }
-                            }
-                        }
-                    }
-                    Thread.sleep(POLL_MS)
-                    waited += POLL_MS
-                }
-                call.reject("下载超时", "E_IO")
-            } catch (e: Exception) {
-                call.reject(e.message ?: "下载失败", "E_IO", e)
+        try {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val request = DownloadManager.Request(Uri.parse(apkUrl)).apply {
+                setTitle("文件管理器更新")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                setMimeType("application/vnd.android.package-archive")
             }
+            val id = dm.enqueue(request)
+            val target = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                fileName
+            )
+            bridge.saveCall(call)
+            pendingCallId = call.callbackId
+            receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(ctx: Context, intent: Intent) {
+                    if (intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != id) return
+                    unregisterReceiver()
+                    val saved = bridge.getSavedCall(pendingCallId)
+                    pendingCallId = null
+                    dm.query(DownloadManager.Query().setFilterById(id))?.use { c ->
+                        val ok = c.moveToFirst() &&
+                            c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
+                        if (ok) saved?.resolve(JSObject().apply { put("path", target.absolutePath) })
+                        else saved?.reject("下载失败", "E_IO")
+                        saved?.let { bridge.releaseCall(it) }
+                    }
+                }
+            }
+            context.registerReceiver(
+                receiver,
+                android.content.IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                Context.RECEIVER_EXPORTED
+            )
+        } catch (e: Exception) {
+            call.reject(e.message ?: "下载失败", "E_IO", e)
         }
+    }
+
+    private var receiver: android.content.BroadcastReceiver? = null
+    private var pendingCallId: String? = null
+
+    private fun unregisterReceiver() {
+        receiver?.let { runCatching { context.unregisterReceiver(it) } }
+        receiver = null
+    }
+
+    override fun handleOnDestroy() {
+        unregisterReceiver()
+        super.handleOnDestroy()
     }
 
     /** The user still has to confirm in the system installer; that step is not skippable. */

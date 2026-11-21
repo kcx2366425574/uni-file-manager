@@ -29,6 +29,12 @@ jobs:
       - name: Accept Android SDK licences
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      # Maven Central rate-limits shared runner IPs (seen: 429 Too Many Requests). Caching the
+      # Gradle cache and retrying makes the build survive that.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
       - name: Install dependencies
         run: npm ci
 

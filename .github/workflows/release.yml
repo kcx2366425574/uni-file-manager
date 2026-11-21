@@ -24,7 +24,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already ships an Android SDK; the android-actions/setup-android action
+      # tries to install the removed 'tools' package and fails. Just accept licences.
+      - name: Accept Android SDK licences
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Install dependencies
         run: npm ci

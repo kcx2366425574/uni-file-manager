@@ -8,7 +8,9 @@ android {
         applicationId "com.kuangcx.ufm"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Must match what parseVersionCodeFromTag derives from the git tag (MAJOR*10000+MINOR*100+PATCH),
+        // otherwise the same release looks newer than itself in 检查更新.
+        versionCode 10000
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

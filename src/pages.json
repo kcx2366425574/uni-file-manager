@@ -59,6 +59,12 @@
       "style": {
         "navigationBarTitleText": "整理照片"
       }
+    },
+    {
+      "path": "pages/update/update",
+      "style": {
+        "navigationBarTitleText": "检查更新"
+      }
     }
   ],
   "globalStyle": {

@@ -38,6 +38,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 import { Shell, type PermissionSnapshot, type StorageStats } from '../../native/shell'
+import { Update } from '../../native/update'
 import { formatSize } from '../../utils/format'
 
 const snap = ref<PermissionSnapshot>({ allFiles: false, mediaImages: false, installPackages: false, sdk: 0 })
@@ -53,6 +54,8 @@ async function refresh() {
     stats.value = s
     used.value = formatSize(s.usedBytes)
     total.value = formatSize(s.totalBytes)
+    const v = await Update.currentVersion()
+    version.value = v.versionName + ' (' + v.versionCode + ')'
   } catch {
     // Permission and storage values are best effort; the page must still render.
   }
@@ -67,7 +70,7 @@ function openInstall() {
 }
 
 function checkUpdate() {
-  uni.showToast({ title: '在线升级在下一个任务接入', icon: 'none' })
+  uni.navigateTo({ url: '/pages/update/update' })
 }
 
 onShow(refresh)

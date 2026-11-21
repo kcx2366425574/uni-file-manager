@@ -18,6 +18,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(MediaPlugin::class.java)
         registerPlugin(FavPlugin::class.java)
         registerPlugin(CleanupPlugin::class.java)
+        registerPlugin(UpdatePlugin::class.java)
         super.onCreate(savedInstanceState)
         openPlugin = bridge.getPlugin("Open")?.instance as? OpenPlugin
         openPlugin?.accept(intent)

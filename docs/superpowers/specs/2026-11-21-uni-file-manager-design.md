@@ -256,7 +256,14 @@ CREATE TABLE favorites (
 
 顺序：
 
-1. 安装 JDK 17（Temurin），或先试 DevEco 的 JBR 25；以 `gradlew` 是否报版本错误为准，不做臆测。
+1. 安装 JDK 17（Temurin）。
+   - **已核实**：Capacitor 8.6.2 的 Android 模板用 `com.android.tools.build:gradle:8.13.0`，
+     wrapper 分发 `gradle-8.14.3-all.zip`
+     （来源：`@capacitor/cli@8.6.2` 包内 `assets/android-template.tar.gz` 解包后的
+     `build.gradle:10` 与 `gradle/wrapper/gradle-wrapper.properties:3`）。
+   - **已核实**：Gradle 官方兼容表（https://docs.gradle.org/current/userguide/compatibility.html）
+     写明 Java 25 需要 Gradle 9.1.0+，Gradle 8.14 最高支持 Java 24。
+     因此 DevEco Studio 自带的 JBR 25 **不能**用于本工程，必须另装 JDK 17 或 21。
 2. 安装 Android `cmdline-tools` → `sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"`。
 3. 设置 `ANDROID_HOME`、`JAVA_HOME`，接受 licenses。
 4. 生成本地 `local.properties`（不入库）。
@@ -348,7 +355,7 @@ uni-file-manager/
 
 | 风险 | 影响 | 应对 |
 |---|---|---|
-| Capacitor 8 要求 JDK 版本与 JBR 25 不符 | 本地无法构建 | 实测 `gradlew` 报错再决定是否装 JDK 17，不预先臆断 |
+| DevEco 自带 JBR 25 不能用于本工程 | 需另装 JDK | **已核实**：Gradle 8.14 最高支持 Java 24（Gradle 官方兼容表），模板 wrapper 为 8.14.3 → 直接安装 JDK 17，不浪费一次失败构建 |
 | uni-app Vue3 包为 alpha 标签 | 可能有构建不稳 | 锁定具体版本（`3.0.0-alpha-5030720261117001`），锁 `package-lock.json`；若构建失败，改用稳定版 CLI 模板 |
 | Android 14+ 对 `MANAGE_EXTERNAL_STORAGE` 收紧 | 部分机型设置页不显示 | 设置页给出逐厂商的说明；无权限时降级模式必须有完整可用路径 |
 | SD 卡 `getDirectory()` 在部分机型返回 null | 无法枚举 SD 卡 | 回退到 `/storage/<UUID>` 扫描 `/proc/mounts` |

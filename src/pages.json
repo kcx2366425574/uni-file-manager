@@ -1,7 +1,26 @@
 {
   "pages": [
-    { "path": "pages/index/index", "style": { "navigationBarTitleText": "文件管理器" } },
-    { "path": "pages/files/files", "style": { "navigationBarTitleText": "文件" } }
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "文件管理器"
+      }
+    },
+    {
+      "path": "pages/files/files",
+      "style": {
+        "navigationBarTitleText": "文件"
+      }
+    },
+    {
+      "path": "pages/open/open",
+      "style": {
+        "navigationBarTitleText": "打开文件"
+      }
+    }
   ],
-  "globalStyle": { "navigationBarBackgroundColor": "#101418", "navigationBarTextStyle": "white" }
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#101418",
+    "navigationBarTextStyle": "white"
+  }
 }

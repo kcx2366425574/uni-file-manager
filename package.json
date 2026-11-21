@@ -1,0 +1,32 @@
+{
+  "name": "uni-file-manager",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev:h5": "uni",
+    "build:h5": "uni build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "cap:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@dcloudio/uni-app": "3.0.0-alpha-5030720261117001",
+    "@dcloudio/uni-components": "3.0.0-alpha-5030720261117001",
+    "@dcloudio/uni-h5": "3.0.0-alpha-5030720261117001",
+    "pinia": "2.1.7",
+    "vue": "3.4.21"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "@dcloudio/types": "3.4.31",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-5030720261117001",
+    "@dcloudio/uni-h5-vite": "3.0.0-alpha-5030720261117001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5030720261117001",
+    "@vitejs/plugin-vue": "5.0.4",
+    "typescript": "5.4.5",
+    "vite": "5.2.8",
+    "vitest": "1.6.0"
+  }
+}

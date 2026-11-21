@@ -1,0 +1,6 @@
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "文件管理器" } }
+  ],
+  "globalStyle": { "navigationBarBackgroundColor": "#101418", "navigationBarTextStyle": "white" }
+}

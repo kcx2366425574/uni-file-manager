@@ -27,7 +27,7 @@ class CleanupPlugin : Plugin() {
     @PluginMethod
     fun scanDuplicates(call: PluginCall) {
         val limit = (CallNum.long(call, "limit", 400L)).toInt().coerceIn(1, 2000)
-        bridge.execute {
+        com.kuangcx.ufm.core.Background.submit {
             try {
                 val files = collectImages(limit)
 
@@ -75,7 +75,7 @@ class CleanupPlugin : Plugin() {
     @PluginMethod
     fun scanBySize(call: PluginCall) {
         val minBytes = CallNum.long(call, "minBytes", 1024L * 1024L)
-        bridge.execute {
+        com.kuangcx.ufm.core.Background.submit {
             try {
                 val groups = collectImages(2000)
                     .groupBy { it.length() }

@@ -153,6 +153,10 @@ class FsPlugin : Plugin() {
                 try {
                     val f = PathUtil.safe(p)
                     if (!f.exists()) { failed.put(errObj(p, "E_NOENT")); continue }
+                    // A file manager holding MANAGE_EXTERNAL_STORAGE can delete DCIM or the storage
+                    // root in one pass; refuse before touching anything.
+                    val denied = com.kuangcx.ufm.core.PathGuard.denyDelete(f)
+                    if (denied != null) { failed.put(errObj(p, "E_PERM")); continue }
                     if (!deleteRecursively(f)) { failed.put(errObj(p, "E_IO")); continue }
                     removed.put(p)
                 } catch (e: Exception) {

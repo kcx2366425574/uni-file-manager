@@ -1,47 +1,43 @@
 <template>
-  <view class="dbg">
-    <img v-if="url" :src="url" class="pic" @load="onLoad" @error="onErr" />
-    <text class="t">{{ status }}</text>
-    <text class="u">{{ url }}</text>
+  <!--
+    uni-app's <image> component rewrites a https://localhost/_capacitor_file_/... src into a
+    root-relative path (/cache/thumbs/...), which no longer reaches Capacitor's local server.
+    Verified over CDP: the DOM img ended up with src="/cache/thumbs/x.jpg" while the original
+    URL loaded fine (naturalWidth>0). So the src attribute is assigned through a plain DOM
+    lookup after mount instead of through a template binding.
+  -->
+  <view class="box">
+    <img :id="domId" class="pic" alt="" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { thumbUrl } from '../native/media'
 
 const props = withDefaults(defineProps<{ path: string; maxPx?: number }>(), { maxPx: 256 })
 
-const url = ref('')
-const status = ref('waiting')
+const domId = `thumb-${Math.random().toString(36).slice(2, 10)}`
 
-watch(
-  () => props.path,
-  async (p) => {
-    status.value = 'resolving'
-    if (!p) {
-      url.value = ''
-      status.value = 'no path'
-      return
-    }
-    try {
-      url.value = await thumbUrl(p, props.maxPx)
-      status.value = `got url len=${url.value.length}`
-    } catch (e) {
-      url.value = ''
-      status.value = 'error: ' + JSON.stringify(e)
-    }
-  },
-  { immediate: true }
-)
+async function paint(p: string) {
+  const el = document.getElementById(domId) as HTMLImageElement | null
+  if (!el) return
+  if (!p) {
+    el.removeAttribute('src')
+    return
+  }
+  try {
+    el.src = await thumbUrl(p, props.maxPx)
+  } catch {
+    el.removeAttribute('src')
+  }
+}
 
-function onLoad() { status.value = 'LOADED ' + url.value.slice(-20) }
-function onErr() { status.value = 'IMG ERROR ' + url.value.slice(-20) }
+onMounted(() => paint(props.path))
+watch(() => props.path, (p) => paint(p))
 </script>
 
 <style>
-.dbg { width: 100%; height: 100%; background: #1a1f24; overflow: hidden; }
+.box { width: 100%; height: 100%; background: #1a1f24; border-radius: 4px; overflow: hidden; }
 .pic { width: 100%; height: 100%; object-fit: cover; display: block; }
-.t { font-size: 16rpx; color: #22c55e; }
-.u { font-size: 12rpx; color: #6b7280; word-break: break-all; }
 </style>

@@ -124,6 +124,25 @@ class MediaPlugin : Plugin() {
         }
     }
 
+    /** Returns the thumbnail inline as a data URL; the WebView draws data URLs reliably. */
+    @PluginMethod
+    fun thumbnailData(call: PluginCall) {
+        val path = call.getString("path")
+        val maxPx = (call.getInt("maxPx") ?: 256).coerceIn(64, 1024)
+        bridge.execute {
+            try {
+                if (path.isNullOrBlank()) { call.reject("path required", "E_NOENT"); return@execute }
+                val f = thumbs.get(path, maxPx)
+                if (f == null) { call.reject("thumbnail failed", "E_IO"); return@execute }
+                val bytes = f.readBytes()
+                val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                call.resolve(JSObject().apply { put("dataUrl", "data:image/jpeg;base64," + b64) })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "thumbnail failed", "E_IO", e)
+            }
+        }
+    }
+
     @PluginMethod
     fun trimThumbs(call: PluginCall) {
         bridge.execute {

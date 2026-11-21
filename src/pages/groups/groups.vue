@@ -8,8 +8,8 @@
     <scroll-view class="list" scroll-y>
       <view v-for="g in groups" :key="g.path" class="card" @click="openGroup(g)" @longpress="showActions(g)">
         <view class="cover">
-          <image v-if="covers[g.path]" class="coverimg" :src="covers[g.path]" mode="aspectFill" />
-          <text v-else class="dbgtext">...</text>
+          <img v-if="covers[g.path]" :src="covers[g.path]" style="width:160rpx;height:160rpx;object-fit:cover;display:block;" />
+          <text v-else style="font-size:20rpx;color:#5a6169;">{{ g.cover ? 'HAS' : 'EMPTY' }}</text>
         </view>
         <view class="info">
           <text class="name">{{ g.name }}</text>
@@ -28,7 +28,7 @@ import { ref } from 'vue'
 import ActionSheet from '../../components/ActionSheet.vue'
 import { Group, type GroupInfo } from '../../native/group'
 import { describeError } from '../../utils/errors'
-import { thumbUrl } from '../../native/media'
+import { thumbDataUrl } from '../../native/media'
 
 const groups = ref<GroupInfo[]>([])
 /** Resolved thumbnail URL per group path, so the template never awaits mid-render. */
@@ -49,7 +49,7 @@ async function load() {
     const map: Record<string, string> = {}
     for (const g of groups.value) {
       if (!g.cover) continue
-      try { map[g.path] = await thumbUrl(g.cover, 320) } catch { /* fall through to the placeholder */ }
+      try { map[g.path] = await thumbDataUrl(g.cover, 320) } catch { /* fall through to the placeholder */ }
     }
     covers.value = map
     topCover.value = Object.values(map)[0] || ''
@@ -133,7 +133,8 @@ onShow(load)
 .newbtn { color: #3b82f6; font-size: 28rpx; }
 .list { flex: 1; }
 .card { display: flex; align-items: center; min-height: 168rpx; margin: 0 32rpx 20rpx; background: #191d22; border-radius: 16rpx; overflow: hidden; }
-.cover { width: 160rpx; height: 160rpx; background: #1a1f24; flex-shrink: 0; position: relative; overflow: hidden; }
+.cover { width: 160rpx; height: 160rpx; background: #1a1f24; flex: 0 0 160rpx; position: relative; overflow: hidden; }
+.cover img { position: absolute; left: 0; top: 0; width: 160rpx; height: 160rpx; object-fit: cover; display: block; }
 /* uni-app scopes each component's styles, so the child .thumb cannot size off this box
    unless the sizing is pushed down explicitly. */
 .emptycover { display: flex; align-items: center; justify-content: center; color: #5a6169; width: 160rpx; height: 160rpx; }

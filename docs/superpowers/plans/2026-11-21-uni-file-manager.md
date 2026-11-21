@@ -1359,7 +1359,10 @@ Expected: FAIL，`Unresolved reference: safe`
 
     @PluginMethod
     fun remove(call: PluginCall) {
-        val paths = call.getArray("paths")?.toList()?.map { it.toString() } ?: emptyList()
+        // JSArray.toList() is List<Any?> and breaks inference; read by index instead.
+        val arr = call.getArray("paths")
+        val paths = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) paths.add(arr.getString(i)) }
         bridge.execute {
             if (!Perm.ensureAllFiles(context)) { call.reject("no all-files access", "E_PERM"); return@execute }
             val removed = JSArray()
@@ -2096,14 +2099,20 @@ class MoveEngine(
 
     @PluginMethod
     fun move(call: PluginCall) {
-        val paths = call.getArray("paths")?.toList()?.map { it.toString() } ?: emptyList()
+        // JSArray.toList() is List<Any?> and breaks inference; read by index instead.
+        val arr = call.getArray("paths")
+        val paths = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) paths.add(arr.getString(i)) }
         val destDir = call.getString("destDir")
         bridge.execute { transfer(call, paths, destDir, isMove = true) }
     }
 
     @PluginMethod
     fun copy(call: PluginCall) {
-        val paths = call.getArray("paths")?.toList()?.map { it.toString() } ?: emptyList()
+        // JSArray.toList() is List<Any?> and breaks inference; read by index instead.
+        val arr = call.getArray("paths")
+        val paths = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) paths.add(arr.getString(i)) }
         val destDir = call.getString("destDir")
         bridge.execute { transfer(call, paths, destDir, isMove = false) }
     }
@@ -3490,7 +3499,10 @@ class SharePlugin : Plugin() {
 
     @PluginMethod
     fun shareFiles(call: PluginCall) {
-        val paths = call.getArray("paths")?.toList()?.map { it.toString() } ?: emptyList()
+        // JSArray.toList() is List<Any?> and breaks inference; read by index instead.
+        val arr = call.getArray("paths")
+        val paths = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) paths.add(arr.getString(i)) }
         if (paths.isEmpty()) { call.reject("no files", "E_NOENT"); return }
         try {
             val uris = ArrayList(paths.map { uriOf(it) })

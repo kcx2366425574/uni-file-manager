@@ -87,4 +87,94 @@ class FsPlugin : Plugin() {
             }
         }
     }
+
+    @PluginMethod
+    fun mkdir(call: PluginCall) {
+        val parent = call.getString("parent")
+        val name = call.getString("name")
+        bridge.execute {
+            try {
+                if (!Perm.ensureAllFiles(context)) { call.reject("no all-files access", "E_PERM"); return@execute }
+                val base = PathUtil.safe(parent)
+                if (!base.isDirectory) { call.reject("parent missing", "E_NOENT"); return@execute }
+                // A name is a single path segment; separators would escape the parent directory.
+                if (name.isNullOrBlank() || name.contains('/') || name == "." || name == "..") {
+                    call.reject("bad name", "E_BAD_NAME"); return@execute
+                }
+                val target = java.io.File(base, name)
+                if (target.exists()) { call.reject("exists", "E_EXISTS"); return@execute }
+                if (!target.mkdirs()) { call.reject("mkdir failed", "E_IO"); return@execute }
+                call.resolve(JSObject().apply { put("path", target.absolutePath) })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "mkdir failed", "E_IO", e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun rename(call: PluginCall) {
+        val path = call.getString("path")
+        val newName = call.getString("newName")
+        bridge.execute {
+            try {
+                if (!Perm.ensureAllFiles(context)) { call.reject("no all-files access", "E_PERM"); return@execute }
+                val src = PathUtil.safe(path)
+                if (!src.exists()) { call.reject("not found", "E_NOENT"); return@execute }
+                if (newName.isNullOrBlank() || newName.contains('/') || newName == "." || newName == "..") {
+                    call.reject("bad name", "E_BAD_NAME"); return@execute
+                }
+                val dst = java.io.File(src.parentFile, newName)
+                if (dst.exists() && dst.absolutePath != src.absolutePath) {
+                    call.reject("exists", "E_EXISTS"); return@execute
+                }
+                if (!src.renameTo(dst)) { call.reject("rename failed", "E_RENAME_FAILED"); return@execute }
+                lightRescan(src.absolutePath, dst.absolutePath)
+                call.resolve(JSObject().apply { put("path", dst.absolutePath) })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "rename failed", "E_IO", e)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun remove(call: PluginCall) {
+        // JSArray.toList() returns List<Any?> which defeats type inference here; read by index.
+        val arr = call.getArray("paths")
+        val paths = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) paths.add(arr.getString(i)) }
+        bridge.execute {
+            if (!Perm.ensureAllFiles(context)) { call.reject("no all-files access", "E_PERM"); return@execute }
+            val removed = JSArray()
+            val failed = JSArray()
+            for (p in paths) {
+                try {
+                    val f = PathUtil.safe(p)
+                    if (!f.exists()) { failed.put(errObj(p, "E_NOENT")); continue }
+                    if (!deleteRecursively(f)) { failed.put(errObj(p, "E_IO")); continue }
+                    removed.put(p)
+                } catch (e: Exception) {
+                    failed.put(errObj(p, "E_IO"))
+                }
+            }
+            lightRescan(*paths.toTypedArray())
+            call.resolve(JSObject().apply { put("removed", removed); put("failed", failed) })
+        }
+    }
+
+    private fun errObj(path: String, code: String) = JSObject().apply { put("path", path); put("code", code) }
+
+    private fun deleteRecursively(f: java.io.File): Boolean {
+        if (f.isDirectory) f.listFiles()?.forEach { deleteRecursively(it) }
+        return f.delete()
+    }
+
+    /**
+     * MediaScannerConnection has no public synchronous API; scanning also runs on the bridge's
+     * looper thread, so a fire-and-forget call is the supported usage.
+     */
+    private fun lightRescan(vararg paths: String) {
+        paths.forEach { p ->
+            android.media.MediaScannerConnection.scanFile(context, arrayOf(p), null, null)
+        }
+    }
 }

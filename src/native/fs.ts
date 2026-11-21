@@ -21,6 +21,9 @@ export interface Volume {
 export interface FsNative {
   volumes(): Promise<{ volumes: Volume[] }>
   listDir(o: { path: string; sort?: SortKey; asc?: boolean }): Promise<{ path: string; entries: FileEntry[] }>
+  mkdir(o: { parent: string; name: string }): Promise<{ path: string }>
+  rename(o: { path: string; newName: string }): Promise<{ path: string }>
+  remove(o: { paths: string[] }): Promise<{ removed: string[]; failed: { path: string; code: string }[] }>
 }
 
 export const Fs = registerPlugin<FsNative>('Fs')

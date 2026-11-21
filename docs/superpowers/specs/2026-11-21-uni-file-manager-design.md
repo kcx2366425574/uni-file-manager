@@ -272,6 +272,15 @@ CREATE TABLE favorites (
 ### 7.2 签名
 
 - 用 `keytool` 生成 `release.keystore`（RSA 2048，有效期 10000 天）。
+- **口令的硬性要求（实测，keytool 版本 `openjdk 25.0.2`，随 DevEco JBR）**：
+  1. **长度 ≥ 6 个字符**：`-storepass abcde` 报 `Key password must be at least 6 characters`；`abcdef` 成功。
+  2. **按字符数计，不按字节数计**：5 个汉字（UTF-8 共 15 字节）同样报 "at least 6 characters"。
+  3. **`storepass` 与 `keypass` 必须完全相同**：默认容器是 PKCS12（`keytool -list` 输出 `Keystore type: PKCS12`），
+     两者不同时 keytool 警告 `Different store and key passwords not supported for PKCS12 KeyStores.
+     Ignoring user-specified -keypass value.` 并只保留 `storepass`。
+     因此 GitHub Secrets 里 `KEYSTORE_PASSWORD` 与 `KEY_PASSWORD` **必须填同一个值**。
+  4. keytool 本身接受 `$ ! @ #` 空格与中文，但这些字符经过 `export` → GitHub Secrets → Gradle
+     `System.getenv()` 三层传递时，脚本漏写引号会被 shell 吃掉。**建议用 16～32 位纯字母数字**。
 - **只生成一次**，备份在仓库外；`keystore` 的 base64 + 口令存 GitHub Secrets：`KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`。
 - 签名不一致会导致覆盖安装失败，因此 keystore 一旦丢失即无法升级。
 

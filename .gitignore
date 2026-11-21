@@ -1,12 +1,16 @@
 node_modules/
 dist/
-.android/
 android/app/build/
 android/build/
 android/.gradle/
 android/local.properties
+
+# Signing material must never reach a public repo.
 *.keystore
-!release.keystore.example
+*.jks
+*.b64
+keystore.b64
+
 .DS_Store
 .vscode/
 *.log

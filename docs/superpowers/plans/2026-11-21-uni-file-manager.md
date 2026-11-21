@@ -256,6 +256,41 @@ export function createApp() {
 }
 ```
 
+`.gitignore`（仓库是**公开**的，签名相关文件绝不能进去）:
+```gitignore
+node_modules/
+dist/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+
+# Signing material must never reach a public repo.
+*.keystore
+*.jks
+*.b64
+keystore.b64
+
+# Local Android SDK path
+android/local.properties
+
+.DS_Store
+.vscode/
+*.log
+```
+
+`.gitattributes`（MUST have LF for shell scripts and Gradle wrapper; CRLF breaks `gradlew` and `gen-keystore.sh` on CI）:
+```gitattributes
+* text=auto
+*.sh text eol=lf
+gradlew text eol=lf
+*.bat text eol=crlf
+*.keystore binary
+*.jks binary
+*.apk binary
+*.png binary
+```
+
 `src/App.vue`:
 ```vue
 <script setup lang="ts"></script>
@@ -5377,32 +5412,72 @@ git commit -m "feat: 设置页、检查更新（含 24h 节流）、下载与安
 ```bash
 #!/usr/bin/env bash
 # Generates the ONLY signing key this app will ever use. Losing it makes覆盖升级 impossible.
+#
+# Password requirements (measured with keytool from JBR 25):
+#   - at least 6 characters (counted as characters, not bytes)
+#   - storepass and keypass MUST be identical: PKCS12 ignores -keypass otherwise
+#   - prefer 16-32 alphanumeric chars; $ ! " \ and spaces survive three shell layers poorly
 set -euo pipefail
 OUT="${1:-release.keystore}"
 ALIAS="${KEY_ALIAS:-ufm}"
+
 if [ -f "$OUT" ]; then
   echo "refusing to overwrite $OUT" >&2
   exit 1
 fi
+
+# Validate before invoking keytool so the failure message is actionable.
+if [ "${#KEYSTORE_PASSWORD}" -lt 6 ]; then
+  echo "KEYSTORE_PASSWORD must be at least 6 characters (got ${#KEYSTORE_PASSWORD})" >&2
+  exit 1
+fi
+if [ "$KEYSTORE_PASSWORD" != "$KEY_PASSWORD" ]; then
+  echo "KEYSTORE_PASSWORD and KEY_PASSWORD must be identical: PKCS12 silently ignores a different -keypass" >&2
+  exit 1
+fi
+
 "$JAVA_HOME/bin/keytool" -genkeypair -v \
   -keystore "$OUT" \
   -alias "$ALIAS" \
   -keyalg RSA -keysize 2048 -validity 10000 \
-  -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
-  -dname "CN=uni-file-manager, OU=personal, O=kcx, L=, ST=, C=CN"
+  -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" \
+  -dname "CN=uni-file-manager, OU=personal, O=kcx, C=CN"
 echo "created $OUT — back it up outside the repo, then run:"
 echo "  base64 -w0 $OUT   # paste into GitHub secret KEYSTORE_BASE64"
+echo "Also set KEYSTORE_PASSWORD and KEY_PASSWORD to the SAME value in GitHub Secrets."
 ```
 
-执行（需要真实口令，由用户提供；脚本本身不把口令写进仓库）：
+（`-dname` 去掉了空的 `L=` 与 `ST=`：实测空值虽被接受，但部分工具链解析 `L=, ` 会告警，去掉更干净。`L`/`ST` 对 Android 签名有效性无影响，只影响证书展示信息。）
+
+执行（需要的口令由用户现场提供，不写进仓库）：
 ```bash
 export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-17* | head -1)
-export KEYSTORE_PASSWORD='<由用户在本地输入>'
-export KEY_PASSWORD='<由用户在本地输入>'
+# 16-32 alphanumeric chars; both variables MUST hold the same value.
+export KEYSTORE_PASSWORD='<用户在本地输入，≥6 字符的字母数字>'
+export KEY_PASSWORD="$KEYSTORE_PASSWORD"
+export KEY_ALIAS='ufm'
 bash scripts/gen-keystore.sh release.keystore
+
+# Byte-exact base64 that GitHub Secrets will carry; -w0 keeps it on one line.
 base64 -w0 release.keystore > keystore.b64
+wc -c release.keystore keystore.b64   # sizes come from the real command, not estimated
 ```
-`release.keystore` 与 `keystore.b64` 都在 `.gitignore` 里（Task 1 已加 `*.keystore`；再补 `*.b64`）。
+`release.keystore` 与 `keystore.b64` 都在 `.gitignore` 里（Task 1 已加 `*.keystore`；本步补 `*.b64`）。
+
+**写进 GitHub Secrets 的四个值**（`gh secret set` 逐个执行，值用交互方式输入，不进 shell history）：
+```bash
+gh secret set KEYSTORE_BASE64   < keystore.b64
+gh secret set KEYSTORE_PASSWORD   # 交互粘贴，与上面 KEYSTORE_PASSWORD 相同
+gh secret set KEY_PASSWORD        # 必须与 KEYSTORE_PASSWORD 完全相同（PKCS12 限制）
+gh secret set KEY_ALIAS           # ufm
+```
+Expected: 四条都返回 `✓ Set Actions secret …`；用 `gh secret list` 能看到四个名字（值不可回读）。
+
+**验证口令一致性**（万一填错，CI 会在签名阶段失败而不是在发版后才发现）：
+```bash
+keytool -list -keystore release.keystore -storepass "$KEYSTORE_PASSWORD" | head -3
+```
+Expected: 输出 `Keystore type: PKCS12` 且列出 `ufm, PrivateKeyEntry`；若报 `password was incorrect` 说明口令记错了，**立刻重设而不是重新生成 keystore**（重新生成等于换签名，已装用户将无法覆盖升级）。
 
 - [ ] **Step 2: 发布工作流**
 

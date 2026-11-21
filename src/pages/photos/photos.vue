@@ -13,7 +13,7 @@
           class="cell"
           :class="{ picked: isSelected(it) }"
           @click="tap(it)"
-          @longpress="toggle(it)"
+          @longpress="onLongPress(it)"
         >
           <ThumbImage :path="it.path" />
           <text v-if="isSelected(it)" class="mark">✓</text>
@@ -39,6 +39,7 @@ import { Media, type MediaItem, type MediaKind } from '../../native/media'
 import { Group } from '../../native/group'
 import { Fs } from '../../native/fs'
 import { Share } from '../../native/share'
+import { Fav } from '../../native/fav'
 import { describeError } from '../../utils/errors'
 
 const kind = ref<MediaKind>('image')
@@ -80,6 +81,26 @@ function toggle(it: MediaItem) {
 }
 
 /** While a selection exists a tap toggles that item; otherwise a tap opens the viewer. */
+/**
+ * Long-press opens a small menu rather than jumping straight into selection, so the favourite
+ * action is reachable with one gesture on any photo.
+ */
+function onLongPress(it: MediaItem) {
+  if (selected.value.length) return toggle(it)
+  uni.showActionSheet({
+    itemList: ['收藏', '选择'],
+    success: (r) => {
+      if (r.tapIndex === 0) {
+        Fav.add({ path: it.path, mediaId: it.mediaId })
+          .then(() => uni.showToast({ title: '已收藏', icon: 'none' }))
+          .catch((e) => uni.showToast({ title: describeError(e), icon: 'none' }))
+      } else {
+        toggle(it)
+      }
+    }
+  })
+}
+
 function tap(it: MediaItem) {
   if (selected.value.length) return toggle(it)
   if (!it.mime.startsWith('image/')) {

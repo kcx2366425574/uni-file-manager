@@ -6,12 +6,17 @@
       <button class="entry" @click="goFiles">浏览文件</button>
       <button class="entry" @click="goGroups">照片分组</button>
       <button class="entry" @click="goPhotos">相册</button>
+      <button class="entry" @click="goFavorites">我的收藏</button>
     </view>
   </PermGate>
 </template>
 
 <script setup lang="ts">
 import PermGate from '../../components/PermGate.vue'
+
+function goFavorites() {
+  uni.navigateTo({ url: '/pages/favorites/favorites' })
+}
 
 function goPhotos() {
   uni.navigateTo({ url: '/pages/photos/photos?kind=image' })

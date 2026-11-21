@@ -28,7 +28,7 @@ class MediaPlugin : Plugin() {
         }
         val page = (call.getInt("page") ?: 0).coerceAtLeast(0)
         val pageSize = (call.getInt("pageSize") ?: 200).coerceIn(1, 1000)
-        val sinceMs = call.getLong("sinceMs")
+        val sinceMs = com.kuangcx.ufm.core.CallNum.longOrNull(call, "sinceMs")
         bridge.execute {
             try {
                 // Images/Video/Audio are typed collections and reject media_type; only Files needs it.

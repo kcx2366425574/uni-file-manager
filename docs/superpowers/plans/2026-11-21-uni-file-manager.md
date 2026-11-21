@@ -6,14 +6,14 @@
 
 **Architecture:** 页面层用 uni-app(Vue3 + Vite) 写，构建为 H5 后由 Capacitor 8 的 Android WebView 容器加载；文件、相册、分组、收藏、升级五类能力全部由自写的 Capacitor 插件（Kotlin）暴露，不使用任何 `plus.*` API，因此整条构建链可用 GitHub Actions 复现。
 
-**Tech Stack:** uni-app `3.0.0-alpha-5030720261117001`（Vue 3.4.21 + Vite 5.2.8）、Capacitor `8.6.2`、Kotlin `2.1.21`、AGP `8.13.0`、Gradle `8.14.3`、JDK 17、JUnit 4.13.2、Vitest、Playwright。
+**Tech Stack:** uni-app `3.0.0-alpha-5030720261117001`（Vue 3.4.21 + Vite 5.2.8）、Capacitor `8.6.2`、Kotlin `2.1.21`、AGP `8.13.0`、Gradle `8.14.3`、JDK 21、JUnit 4.13.2、Vitest、Playwright。
 
 **Spec:** `docs/superpowers/specs/2026-11-21-uni-file-manager-design.md`
 
 ## Global Constraints
 
 - `minSdkVersion = 30`（Android 11），`compileSdkVersion = 36`，`targetSdkVersion = 36`（Capacitor 8 模板默认值，来源：`@capacitor/cli@8.6.2` 包内 `assets/android-template.tar.gz` 的 `variables.gradle`，实测）。
-- `applicationId` = `com.kcx.ufm`，Kotlin 包根 = `com.kcx.ufm`。
+- `applicationId` = `com.kuangcx.ufm`，Kotlin 包根 = `com.kuangcx.ufm`。
 - 版本号：`versionCode` 从 `1` 起单调递增；`versionName` 用 `MAJOR.MINOR.PATCH`；两者必须同时改（升级检查依赖 versionCode）。
 - 分组根目录固定为 `Environment.getExternalStorageDirectory()/Pictures/PhotoGroups/`；分组名禁止包含字符 `/ : * ? " < > |` 与控制字符，禁止 `.` 与 `..`，长度 ≤ 64 字节，禁止重名（大小写不敏感）。
 - 跨卷移动必须走「复制 → fsync → 校验 → 改名 → 删源」，禁止直接 copy+delete。
@@ -55,7 +55,7 @@ uni-file-manager/
 │  ├─ app/build.gradle                   加 Kotlin、signingConfig、versionCode
 │  ├─ app/src/main/AndroidManifest.xml   权限、FileProvider
 │  ├─ app/src/main/res/xml/file_paths.xml
-│  └─ app/src/main/java/com/kcx/ufm/
+│  └─ app/src/main/java/com/kuangcx/ufm/
 │     ├─ MainActivity.kt                 注册全部插件
 │     ├─ FsPlugin.kt                     目录列举、CRUD
 │     ├─ MoveEngine.kt                   移动事务（可单测的纯逻辑）
@@ -66,7 +66,7 @@ uni-file-manager/
 │     ├─ FavPlugin.kt                    收藏（SQLite）
 │     ├─ ShellPlugin.kt                  权限、存储统计、更新、安装
 │     └─ core/{PathUtil,NameRules,StorageVolumes,Sorting}.kt
-│  └─ app/src/test/java/com/kcx/ufm/     JUnit 单测
+│  └─ app/src/test/java/com/kuangcx/ufm/     JUnit 单测
 ├─ src/
 │  ├─ pages/{index,files,groups,photos,favorites,settings,update}/
 │  ├─ native/{fs,media,group,fav,shell}.ts   TS 桥接封装 + 类型
@@ -344,22 +344,24 @@ git commit -m "chore: uni-app 骨架与 H5 构建"
 - Create: `android/`（由 `npx cap add android` 生成，之后入库）
 - Modify: `android/app/build.gradle`（Kotlin 插件、applicationId、versionCode）
 - Modify: `android/variables.gradle`（minSdk 30）
-- Modify: `android/app/src/main/java/com/kcx/ufm/MainActivity.kt`
+- Modify: `android/app/src/main/java/com/kuangcx/ufm/MainActivity.kt`
 - Modify: `android/app/src/main/AndroidManifest.xml`（权限占位，Task 3 补齐）
 
 **Interfaces:**
 - Produces: `./gradlew assembleDebug` 产出 `android/app/build/outputs/apk/debug/app-debug.apk`；App 启动后 WebView 显示 Task 1 的首页。
 
-- [ ] **Step 1: 装 JDK 17 与 Android SDK（实测结论驱动）**
+- [ ] **Step 1: 装 JDK 21 与 Android SDK（实测结论驱动）**
 
-Gradle 8.14 最高支持 Java 24（Gradle 官方兼容表），所以 DevEco 的 JBR 25 不可用，必须装 17。
+**JDK 必须是 21**：`node_modules/@capacitor/android/capacitor/build.gradle:66-67` 硬编码
+`sourceCompatibility/targetCompatibility = VERSION_21`，用 JDK 17 会报
+`无效的源发行版: 21`（实测）。Gradle 8.14 最高支持 Java 24，所以 JBR 25 不行、JDK 21 可以。
 
 ```bash
-# 1) JDK 17（Temurin 压缩包，解到用户目录，无需管理员）
+# 1) JDK 21（Temurin 压缩包，解到用户目录，无需管理员）
 cd /c/Users/k30087471/Downloads
-curl -L -o jdk17.zip "https://api.adoptium.net/v3/binary/latest/17/ga/windows/x64/jdk/hotspot/normal/eclipse"
-unzip -q jdk17.zip -d /c/Users/k30087471/tools/
-ls /c/Users/k30087471/tools/          # 期望出现 jdk-17.x.x+x 目录
+curl -L -o jdk21.zip "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse"
+unzip -q jdk21.zip -d /c/Users/k30087471/tools/
+ls -d /c/Users/k30087471/tools/jdk-21*   # 期望出现 jdk-21.x.x+x 目录
 
 # 2) Android cmdline-tools
 mkdir -p /c/Users/k30087471/tools/android-sdk/cmdline-tools
@@ -370,7 +372,7 @@ unzip -q tools.zip && mv cmdline-tools latest
 # 3) 安装 platform 与 build-tools
 export ANDROID_HOME=/c/Users/k30087471/tools/android-sdk
 # Resolve JAVA_HOME from whatever the unzip produced; version strings change between downloads.
-export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-17* | head -1)
+export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-21* | head -1)
 export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
 yes | sdkmanager --licenses
 sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
@@ -389,7 +391,7 @@ Expected: `openjdk version "17.` 开头；列出 android-36 与 36.0.0
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.kcx.ufm',
+  appId: 'com.kuangcx.ufm',
   appName: '文件管理器',
   webDir: 'dist/build/h5',
   android: { allowMixedContent: false, webContentsDebuggingEnabled: true }
@@ -417,7 +419,7 @@ classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.21'
 
 `android/app/build.gradle` 顶部加 `apply plugin: 'kotlin-android'`，并把 `defaultConfig` 改为：
 ```gradle
-applicationId "com.kcx.ufm"
+applicationId "com.kuangcx.ufm"
 minSdkVersion rootProject.ext.minSdkVersion
 targetSdkVersion rootProject.ext.targetSdkVersion
 versionCode 1
@@ -430,9 +432,9 @@ implementation "org.jetbrains.kotlin:kotlin-stdlib:2.1.21"
 
 - [ ] **Step 5: 写 MainActivity（Kotlin）**
 
-删除模板的 `MainActivity.java`，新建 `android/app/src/main/java/com/kcx/ufm/MainActivity.kt`：
+删除模板的 `MainActivity.java`，新建 `android/app/src/main/java/com/kuangcx/ufm/MainActivity.kt`：
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import com.getcapacitor.BridgeActivity
 
@@ -445,10 +447,10 @@ class MainActivity : BridgeActivity()
 
 ```bash
 export ANDROID_HOME=/c/Users/k30087471/tools/android-sdk
-export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-17* | head -1)
+export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-21* | head -1)
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected: `BUILD SUCCESSFUL`；手机上出现「文件管理器」并显示首页文字
 
@@ -464,10 +466,10 @@ git commit -m "feat: Capacitor 容器与 Android 工程，真机可启动"
 
 **Files:**
 - Modify: `android/app/src/main/AndroidManifest.xml`
-- Create: `android/app/src/main/java/com/kcx/ufm/Perm.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/PermState.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/ShellPlugin.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/PermStateTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/Perm.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/PermState.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/ShellPlugin.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/PermStateTest.kt`
 - Create: `src/native/shell.ts`
 - Create: `src/utils/errors.ts`, `tests/unit/errors.spec.ts`
 - Create: `src/components/PermGate.vue`
@@ -506,9 +508,9 @@ describe('describeError', () => {
 })
 ```
 
-`android/app/src/test/java/com/kcx/ufm/PermStateTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/PermStateTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -563,9 +565,9 @@ export function describeError(e: unknown): string {
 }
 ```
 
-`android/app/src/main/java/com/kcx/ufm/PermState.kt`:
+`android/app/src/main/java/com/kuangcx/ufm/PermState.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 data class PermSnapshot(
     val allFiles: Boolean,
@@ -586,9 +588,9 @@ object PermState {
 }
 ```
 
-`android/app/src/main/java/com/kcx/ufm/Perm.kt`:
+`android/app/src/main/java/com/kuangcx/ufm/Perm.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.content.Context
 import android.os.Build
@@ -616,9 +618,9 @@ object Perm {
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
 
-`android/app/src/main/java/com/kcx/ufm/ShellPlugin.kt`（本任务版本，Task 13 扩展）:
+`android/app/src/main/java/com/kuangcx/ufm/ShellPlugin.kt`（本任务版本，Task 13 扩展）:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.Manifest
 import android.content.Intent
@@ -686,7 +688,7 @@ class ShellPlugin : Plugin() {
 
 `MainActivity.kt` 改为：
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.os.Bundle
 import com.getcapacitor.BridgeActivity
@@ -796,7 +798,7 @@ Expected: `BUILD SUCCESSFUL`，2 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected: 首屏是「需要「所有文件访问」权限」说明页而不是白屏；点「去授权」跳系统设置；返回后自动变为「权限已就绪」
 
@@ -812,11 +814,11 @@ git commit -m "feat: 权限清单、权限状态插件与权限门"
 ## Task 4: 存储卷枚举、目录列举与文件列表页
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/PathUtil.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/core/StorageVolumes.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/core/Sorting.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/FsPlugin.kt`（本任务只放 `volumes` / `listDir`）
-- Create: `android/app/src/test/java/com/kcx/ufm/SortingTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/PathUtil.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/StorageVolumes.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/Sorting.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/FsPlugin.kt`（本任务只放 `volumes` / `listDir`）
+- Create: `android/app/src/test/java/com/kuangcx/ufm/SortingTest.kt`
 - Create: `src/native/fs.ts`
 - Create: `src/components/FileRow.vue`
 - Create: `src/pages/files/files.vue`
@@ -830,13 +832,13 @@ git commit -m "feat: 权限清单、权限状态插件与权限门"
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/SortingTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/SortingTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.Entry
-import com.kcx.ufm.core.SortKey
-import com.kcx.ufm.core.sortEntries
+import com.kuangcx.ufm.core.Entry
+import com.kuangcx.ufm.core.SortKey
+import com.kuangcx.ufm.core.sortEntries
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -880,7 +882,7 @@ Expected: FAIL，`Unresolved reference: core`
 
 `core/Sorting.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 enum class SortKey { NAME, SIZE, TIME, TYPE }
 
@@ -907,7 +909,7 @@ fun sortEntries(entries: List<Entry>, key: SortKey, asc: Boolean): List<Entry> {
 
 `core/PathUtil.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import java.io.File
 
@@ -941,7 +943,7 @@ object PathUtil {
 
 `core/StorageVolumes.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import android.content.Context
 import android.os.Environment
@@ -973,7 +975,7 @@ object StorageVolumes {
 
 `FsPlugin.kt`（本任务版本，Task 5/6 扩展）:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -981,11 +983,11 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.Entry
-import com.kcx.ufm.core.PathUtil
-import com.kcx.ufm.core.SortKey
-import com.kcx.ufm.core.StorageVolumes
-import com.kcx.ufm.core.sortEntries
+import com.kuangcx.ufm.core.Entry
+import com.kuangcx.ufm.core.PathUtil
+import com.kuangcx.ufm.core.SortKey
+import com.kuangcx.ufm.core.StorageVolumes
+import com.kuangcx.ufm.core.sortEntries
 
 @CapacitorPlugin(name = "Fs")
 class FsPlugin : Plugin() {
@@ -1229,7 +1231,7 @@ Expected: `BUILD SUCCESSFUL`，4 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected: 点「浏览文件」进入 `/storage/emulated/0`，看到 DCIM / Download / Pictures 等真实目录；点文件夹可进入；无权限时列表显示「缺少「所有文件访问」权限…」而非白屏
 
@@ -1244,8 +1246,8 @@ git commit -m "feat: 存储卷枚举、目录列举与文件列表页"
 ## Task 5: 文件写操作（新建目录 / 重命名 / 删除）与排序切换
 
 **Files:**
-- Modify: `android/app/src/main/java/com/kcx/ufm/FsPlugin.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/PathUtilTest.kt`
+- Modify: `android/app/src/main/java/com/kuangcx/ufm/FsPlugin.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/PathUtilTest.kt`
 - Modify: `src/native/fs.ts`
 - Create: `src/components/ActionSheet.vue`
 - Modify: `src/pages/files/files.vue`
@@ -1260,11 +1262,11 @@ git commit -m "feat: 存储卷枚举、目录列举与文件列表页"
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/PathUtilTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/PathUtilTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.PathUtil
+import com.kuangcx.ufm.core.PathUtil
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -1607,7 +1609,7 @@ Expected: `BUILD SUCCESSFUL`，4 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected（真机逐项）：① 在 Download 下新建文件夹成功，`adb shell ls /storage/emulated/0/Download` 能看到；② 长按文件 → 重命名成功，`adb shell ls` 显示新名；③ 长按 → 删除后文件消失；④ 重命名为已存在的名字时提示「目标位置已存在同名文件」，原文件**仍存在**；⑤ 点右上角排序按钮，顺序随名称/大小/时间/类型切换
 
@@ -1623,11 +1625,11 @@ git commit -m "feat: 文件新建、重命名、删除与排序切换"
 ## Task 6: 移动事务（MoveEngine + MoveJournal）——防丢文件的核心
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/MoveJournal.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/core/MoveEngine.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/MoveJournalTest.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/MoveEngineTest.kt`
-- Modify: `android/app/src/main/java/com/kcx/ufm/FsPlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/MoveJournal.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/MoveEngine.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/MoveJournalTest.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/MoveEngineTest.kt`
+- Modify: `android/app/src/main/java/com/kuangcx/ufm/FsPlugin.kt`
 - Modify: `src/native/fs.ts`
 - Modify: `src/pages/files/files.vue`
 
@@ -1642,13 +1644,13 @@ git commit -m "feat: 文件新建、重命名、删除与排序切换"
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/MoveJournalTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/MoveJournalTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.MoveJournal
-import com.kcx.ufm.core.MoveRecord
-import com.kcx.ufm.core.MoveState
+import com.kuangcx.ufm.core.MoveJournal
+import com.kuangcx.ufm.core.MoveRecord
+import com.kuangcx.ufm.core.MoveState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -1700,12 +1702,12 @@ class MoveJournalTest {
 }
 ```
 
-`android/app/src/test/java/com/kcx/ufm/MoveEngineTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/MoveEngineTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.MoveEngine
-import com.kcx.ufm.core.MoveJournal
+import com.kuangcx.ufm.core.MoveEngine
+import com.kuangcx.ufm.core.MoveJournal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -1778,9 +1780,9 @@ class MoveEngineTest {
         val part = File(dstDir, "a.jpg.part").apply { writeText("half") }
         val j = MoveJournal(dir).apply {
             record(
-                com.kcx.ufm.core.MoveRecord(
+                com.kuangcx.ufm.core.MoveRecord(
                     "x", src.absolutePath, File(dstDir, "a.jpg").absolutePath,
-                    part.absolutePath, 7L, com.kcx.ufm.core.MoveState.COPYING
+                    part.absolutePath, 7L, com.kuangcx.ufm.core.MoveState.COPYING
                 )
             )
         }
@@ -1800,7 +1802,7 @@ Expected: FAIL，`Unresolved reference: core.MoveEngine`
 
 `core/MoveJournal.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -1918,7 +1920,7 @@ class MoveJournal(private val dir: File, private val maxEntries: Int = 200) {
 
 `core/MoveEngine.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import java.io.File
 import java.io.FileInputStream
@@ -2068,19 +2070,19 @@ class MoveEngine(
 
 `FsPlugin.kt` 内追加字段与初始化（`journal`/`engine` 用 `lateinit` 而不是 `by lazy`：`load()` 会立刻用到它们，而 `by lazy` 在 `load()` 期间才首次求值容易踩到生命周期顺序，显式初始化更好读）：
 ```kotlin
-    private lateinit var journal: com.kcx.ufm.core.MoveJournal
-    private lateinit var engine: com.kcx.ufm.core.MoveEngine
+    private lateinit var journal: com.kuangcx.ufm.core.MoveJournal
+    private lateinit var engine: com.kuangcx.ufm.core.MoveEngine
 
     private fun volumeRootOf(path: String): String =
-        com.kcx.ufm.core.StorageVolumes.list(context)
+        com.kuangcx.ufm.core.StorageVolumes.list(context)
             .filter { path == it.path || path.startsWith(it.path + "/") }
             .maxByOrNull { it.path.length }
             ?.path ?: "/"
 
     override fun load() {
         super.load()
-        journal = com.kcx.ufm.core.MoveJournal(java.io.File(context.filesDir, "journal"))
-        engine = com.kcx.ufm.core.MoveEngine(journal) { a, b ->
+        journal = com.kuangcx.ufm.core.MoveJournal(java.io.File(context.filesDir, "journal"))
+        engine = com.kuangcx.ufm.core.MoveEngine(journal) { a, b ->
             volumeRootOf(a.absolutePath) != volumeRootOf(b.absolutePath)
         }
         bridge.execute {
@@ -2272,9 +2274,9 @@ git commit -m "feat: 移动事务引擎、崩溃恢复日志与复制/剪切/粘
 ## Task 7: 分组插件（真实目录）与分组名规则
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/NameRules.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/NameRulesTest.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/GroupPlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/NameRules.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/NameRulesTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/GroupPlugin.kt`
 - Create: `src/native/group.ts`
 - Create: `src/pages/groups/groups.vue`
 - Create: `src/pages/groups/detail.vue`
@@ -2289,11 +2291,11 @@ git commit -m "feat: 移动事务引擎、崩溃恢复日志与复制/剪切/粘
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/NameRulesTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/NameRulesTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.NameRules
+import com.kuangcx.ufm.core.NameRules
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -2350,7 +2352,7 @@ Expected: FAIL，`Unresolved reference: core.NameRules`
 
 `core/NameRules.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import java.nio.charset.StandardCharsets
 
@@ -2391,7 +2393,7 @@ object NameRules {
 
 `GroupPlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.os.Environment
 import com.getcapacitor.JSArray
@@ -2400,8 +2402,8 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.NameRules
-import com.kcx.ufm.core.PathUtil
+import com.kuangcx.ufm.core.NameRules
+import com.kuangcx.ufm.core.PathUtil
 import java.io.File
 
 @CapacitorPlugin(name = "Group")
@@ -2864,7 +2866,7 @@ Expected: `BUILD SUCCESSFUL`，6 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 adb shell ls /storage/emulated/0/Pictures/PhotoGroups
 ```
 Expected（真机逐项）：① 新建「旅行」成功，`adb shell ls /storage/emulated/0/Pictures/PhotoGroups` 出现 `旅行`；② 再建「旅行」提示「已存在同名分组」且目录未重复；③ 建名 `a/b` 提示「名称不能包含 …」，`PhotoGroups` 下**不出现**任何新目录；④ 建 22 个汉字的名字提示「名称过长（最多 64 字节）」；⑤ 在系统相册里能看到 `Pictures/PhotoGroups/旅行` 这个相册
@@ -2881,10 +2883,10 @@ git commit -m "feat: 照片分组（真实目录）、分组名规则与分组�
 ## Task 8: MediaStore 相册查询与缩略图缓存
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/MediaQuery.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/ThumbCache.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/MediaPlugin.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/MediaQueryTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/MediaQuery.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/ThumbCache.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/MediaPlugin.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/MediaQueryTest.kt`
 - Create: `src/native/media.ts`
 - Modify: `src/pages/photos/photos.vue`（新建）
 - Modify: `src/pages.json`、`src/pages/index/index.vue`
@@ -2900,12 +2902,12 @@ git commit -m "feat: 照片分组（真实目录）、分组名规则与分组�
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/MediaQueryTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/MediaQueryTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.MediaKind
-import com.kcx.ufm.core.MediaQuery
+import com.kuangcx.ufm.core.MediaKind
+import com.kuangcx.ufm.core.MediaQuery
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -2960,7 +2962,7 @@ Expected: FAIL，`Unresolved reference: core.MediaKind`
 
 `core/MediaQuery.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 enum class MediaKind { IMAGE, VIDEO, AUDIO, DOC }
 
@@ -3015,7 +3017,7 @@ object MediaQuery {
 
 `ThumbCache.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -3103,7 +3105,7 @@ class ThumbCache(private val cacheDir: File) {
 
 `MediaPlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.content.ContentUris
 import android.provider.MediaStore
@@ -3113,8 +3115,8 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.MediaKind
-import com.kcx.ufm.core.MediaQuery
+import com.kuangcx.ufm.core.MediaKind
+import com.kuangcx.ufm.core.MediaQuery
 import java.io.File
 
 @CapacitorPlugin(name = "Media")
@@ -3410,11 +3412,11 @@ Expected: `BUILD SUCCESSFUL`，6 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 # 相册数量应与系统一致，用 MediaStore 查询实测对照
 adb shell content query --uri content://media/external/images/media --projection _id | wc -l
 ```
-Expected: App 相册页显示的图片总数与上面命令的行数一致（±1 行 header）；缩略图滚动流畅、不出现破图；`adb shell ls /data/data/com.kcx.ufm/cache/thumbs | wc -l` 随浏览增长
+Expected: App 相册页显示的图片总数与上面命令的行数一致（±1 行 header）；缩略图滚动流畅、不出现破图；`adb shell ls /data/data/com.kuangcx.ufm/cache/thumbs | wc -l` 随浏览增长
 
 - [ ] **Step 7: 提交**
 
@@ -3427,7 +3429,7 @@ git commit -m "feat: MediaStore 查询与缩略图缓存"
 ## Task 9: 从相册移入分组、分享与打开方式
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/SharePlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/SharePlugin.kt`
 - Create: `src/native/share.ts`
 - Create: `android/app/src/main/res/xml/file_paths.xml`
 - Modify: `android/app/src/main/AndroidManifest.xml`（FileProvider）
@@ -3466,9 +3468,9 @@ git commit -m "feat: MediaStore 查询与缩略图缓存"
 </provider>
 ```
 
-`android/app/src/main/java/com/kcx/ufm/SharePlugin.kt`:
+`android/app/src/main/java/com/kuangcx/ufm/SharePlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.content.Intent
 import android.net.Uri
@@ -3751,7 +3753,7 @@ import { Share } from '../../native/share'
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected（真机逐项）：① 相册页长按照片出现勾选与底部栏；② 点「移入分组」选一个分组后，照片从相册消失、出现在该分组页；③ `adb shell ls /storage/emulated/0/Pictures/PhotoGroups/旅行` 出现这些照片文件名；④ 在**系统相册**里 `旅行` 相册可见且张数一致（这是「真实目录」的直接证据）；⑤ 点「分享」弹出系统分享面板；⑥ 分组页把照片移动到已存在同名文件的目录时，提示失败且照片**未被删除**
 
@@ -3767,9 +3769,9 @@ git commit -m "feat: 相册多选移入分组、分享与打开方式"
 ## Task 10: 收藏（SQLite）与收藏页
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/FavStore.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/FavStoreTest.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/FavPlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/FavStore.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/FavStoreTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/FavPlugin.kt`
 - Create: `src/native/fav.ts`
 - Create: `src/pages/favorites/favorites.vue`
 - Modify: `src/pages.json`、`src/pages/photos/photos.vue`（长按菜单加收藏）
@@ -3784,12 +3786,12 @@ git commit -m "feat: 相册多选移入分组、分享与打开方式"
 
 `FavStore` 依赖 Android 的 `SQLiteOpenHelper`，纯 JVM 单测需要 Robolectric。为了不引入 Robolectric，本任务把「失效剔除的判定」抽成纯函数：
 
-`android/app/src/test/java/com/kcx/ufm/FavStoreTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/FavStoreTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.FavItem
-import com.kcx.ufm.core.partitionMissing
+import com.kuangcx.ufm.core.FavItem
+import com.kuangcx.ufm.core.partitionMissing
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -3833,7 +3835,7 @@ Expected: FAIL，`Unresolved reference: core.FavItem`
 
 `core/FavStore.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -3899,7 +3901,7 @@ class FavStore(context: Context) : SQLiteOpenHelper(context, "favorites.db", nul
 
 `FavPlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
@@ -3907,7 +3909,7 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.FavStore
+import com.kuangcx.ufm.core.FavStore
 
 @CapacitorPlugin(name = "Fav")
 class FavPlugin : Plugin() {
@@ -4109,9 +4111,9 @@ Expected: `BUILD SUCCESSFUL`，3 个测试 PASS
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
-Expected（真机逐项）：① 相册长按照片 → 点「收藏」→ 收藏页出现该照片；② 收藏后把该照片**移入分组**，收藏页仍然显示（收藏只记路径外的引用关系，分组切换不影响）；③ 用 `adb shell rm` 删掉一张被收藏的照片，重新进收藏页 → 该项消失、无破图；④ `adb shell sqlite3 /data/data/com.kcx.ufm/databases/favorites.db "select path from favorites"` 结果与页面一致（只读查询）
+Expected（真机逐项）：① 相册长按照片 → 点「收藏」→ 收藏页出现该照片；② 收藏后把该照片**移入分组**，收藏页仍然显示（收藏只记路径外的引用关系，分组切换不影响）；③ 用 `adb shell rm` 删掉一张被收藏的照片，重新进收藏页 → 该项消失、无破图；④ `adb shell sqlite3 /data/data/com.kuangcx.ufm/databases/favorites.db "select path from favorites"` 结果与页面一致（只读查询）
 
 - [ ] **Step 7: 提交**
 
@@ -4126,7 +4128,7 @@ git commit -m "feat: 照片收藏（SQLite）与收藏页"
 
 **Files:**
 - Modify: `src/pages/index/index.vue`
-- Modify: `android/app/src/main/java/com/kcx/ufm/ShellPlugin.kt`（加 `storageStats`）
+- Modify: `android/app/src/main/java/com/kuangcx/ufm/ShellPlugin.kt`（加 `storageStats`）
 - Modify: `src/native/shell.ts`
 - Create: `src/pages/recent/recent.vue`
 - Modify: `src/pages.json`
@@ -4144,7 +4146,7 @@ git commit -m "feat: 照片收藏（SQLite）与收藏页"
     fun storageStats(call: PluginCall) {
         bridge.execute {
             try {
-                val vols = com.kcx.ufm.core.StorageVolumes.list(context)
+                val vols = com.kuangcx.ufm.core.StorageVolumes.list(context)
                 val arr = JSArray()
                 var total = 0L
                 var free = 0L
@@ -4347,7 +4349,7 @@ onLoad(load)
 npm run build:h5 && npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 ```
 Expected（真机逐项）：① 首页显示已用/总量，与 `adb shell df /storage/emulated/0` 的数值量级一致；② 点「图片」进入相册页且只显示图片；③ 点「最近文件」显示出近 7 天内新增的文件；④ 点「下载目录」直接进入 `Download`
 
@@ -4362,9 +4364,9 @@ git commit -m "feat: 首页分类聚合、最近文件与存储统计"
 ## Task 12: 相似/重复照片检测与整理模式
 
 **Files:**
-- Create: `android/app/src/main/java/com/kcx/ufm/core/Dhash.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/DhashTest.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/CleanupPlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/Dhash.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/DhashTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/CleanupPlugin.kt`
 - Create: `src/native/cleanup.ts`
 - Create: `src/pages/cleanup/cleanup.vue`
 - Modify: `src/pages.json`、`src/pages/index/index.vue`
@@ -4378,12 +4380,12 @@ git commit -m "feat: 首页分类聚合、最近文件与存储统计"
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/DhashTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/DhashTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.dhash
-import com.kcx.ufm.core.hamming
+import com.kuangcx.ufm.core.dhash
+import com.kuangcx.ufm.core.hamming
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -4438,7 +4440,7 @@ Expected: FAIL，`Unresolved reference: core.dhash`
 
 `core/Dhash.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 /**
  * Difference hash over a 9x8 grayscale patch: for each row, every pixel is compared with
@@ -4473,7 +4475,7 @@ object Similarity {
 
 `CleanupPlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -4483,9 +4485,9 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.Similarity
-import com.kcx.ufm.core.dhash
-import com.kcx.ufm.core.hamming
+import com.kuangcx.ufm.core.Similarity
+import com.kuangcx.ufm.core.dhash
+import com.kuangcx.ufm.core.hamming
 import java.io.File
 import java.security.MessageDigest
 
@@ -4569,7 +4571,7 @@ class CleanupPlugin : Plugin() {
             (dir.listFiles() ?: return).forEach { f ->
                 if (out.size >= limit) return
                 if (f.isDirectory) walk(f, depth + 1)
-                else if (com.kcx.ufm.core.PathUtil.mimeOf(f).startsWith("image/")) out += f
+                else if (com.kuangcx.ufm.core.PathUtil.mimeOf(f).startsWith("image/")) out += f
             }
         }
         roots.forEach { walk(it, 0) }
@@ -4616,7 +4618,7 @@ class CleanupPlugin : Plugin() {
         put("name", f.name)
         put("size", f.length())
         put("mtime", f.lastModified())
-        put("mime", com.kcx.ufm.core.PathUtil.mimeOf(f))
+        put("mime", com.kuangcx.ufm.core.PathUtil.mimeOf(f))
     }
 }
 ```
@@ -4816,9 +4818,9 @@ git commit -m "feat: 重复与相似照片检测、照片整理页"
 **Files:**
 - Create: `src/pages/settings/settings.vue`
 - Create: `src/pages/update/update.vue`
-- Create: `android/app/src/main/java/com/kcx/ufm/core/VersionCompare.kt`
-- Create: `android/app/src/test/java/com/kcx/ufm/VersionCompareTest.kt`
-- Create: `android/app/src/main/java/com/kcx/ufm/UpdatePlugin.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/core/VersionCompare.kt`
+- Create: `android/app/src/test/java/com/kuangcx/ufm/VersionCompareTest.kt`
+- Create: `android/app/src/main/java/com/kuangcx/ufm/UpdatePlugin.kt`
 - Create: `src/native/update.ts`
 - Modify: `src/pages.json`
 
@@ -4833,12 +4835,12 @@ git commit -m "feat: 重复与相似照片检测、照片整理页"
 
 - [ ] **Step 1: 写失败测试**
 
-`android/app/src/test/java/com/kcx/ufm/VersionCompareTest.kt`:
+`android/app/src/test/java/com/kuangcx/ufm/VersionCompareTest.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
-import com.kcx.ufm.core.compareVersionCode
-import com.kcx.ufm.core.parseVersionCodeFromTag
+import com.kuangcx.ufm.core.compareVersionCode
+import com.kuangcx.ufm.core.parseVersionCodeFromTag
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -4886,7 +4888,7 @@ Expected: FAIL，`Unresolved reference: core.compareVersionCode`
 
 `core/VersionCompare.kt`:
 ```kotlin
-package com.kcx.ufm.core
+package com.kuangcx.ufm.core
 
 /**
  * Encodes MAJOR.MINOR.PATCH into a single monotonically increasing Long so that ordering
@@ -4909,7 +4911,7 @@ fun compareVersionCode(local: Long, remote: Long): Int = local.compareTo(remote)
 
 `UpdatePlugin.kt`:
 ```kotlin
-package com.kcx.ufm
+package com.kuangcx.ufm
 
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -4925,8 +4927,8 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import com.kcx.ufm.core.compareVersionCode
-import com.kcx.ufm.core.parseVersionCodeFromTag
+import com.kuangcx.ufm.core.compareVersionCode
+import com.kuangcx.ufm.core.parseVersionCodeFromTag
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -5451,7 +5453,7 @@ echo "Also set KEYSTORE_PASSWORD and KEY_PASSWORD to the SAME value in GitHub Se
 
 执行（需要的口令由用户现场提供，不写进仓库）：
 ```bash
-export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-17* | head -1)
+export JAVA_HOME=$(ls -d /c/Users/k30087471/tools/jdk-21* | head -1)
 # 16-32 alphanumeric chars; both variables MUST hold the same value.
 export KEYSTORE_PASSWORD='<用户在本地输入，≥6 字符的字母数字>'
 export KEY_PASSWORD="$KEYSTORE_PASSWORD"
@@ -5649,7 +5651,7 @@ npx cap sync android
 cd android && ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
-需要 JDK 17 与 Android SDK 36（Gradle 8.14 不支持 Java 25）。
+需要 JDK 21 与 Android SDK 36（Gradle 8.14 不支持 JDK 21）。
 
 ## 发版
 ```bash
@@ -5670,7 +5672,7 @@ GitHub Actions 自动构建并发布 APK；App 内「设置 → 检查更新」�
 逐条实测，并把命令输出贴到 PR 描述里：
 ```bash
 # 1 启动
-adb shell am force-stop com.kcx.ufm && adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am force-stop com.kuangcx.ufm && adb shell am start -n com.kuangcx.ufm/.MainActivity
 
 # 2 分组真实可见
 adb shell ls /storage/emulated/0/Pictures/PhotoGroups
@@ -5680,15 +5682,15 @@ adb shell content query --uri content://media/external/images/media \
 # 3 中断恢复：移动大文件时杀进程
 adb shell dd if=/dev/urandom of=/storage/emulated/0/Download/big.bin bs=1M count=200
 # （在 App 内发起移动，立刻）
-adb shell am force-stop com.kcx.ufm
+adb shell am force-stop com.kuangcx.ufm
 adb shell find /storage/emulated/0 -name "big.bin*" -exec ls -l {} \;
-adb shell am start -n com.kcx.ufm/.MainActivity
+adb shell am start -n com.kuangcx.ufm/.MainActivity
 sleep 3
 adb shell find /storage/emulated/0 -name "*.part"   # 期望无残留
 adb shell find /storage/emulated/0 -name "big.bin" -exec ls -l {} \;  # 期望恰好一个，大小正确
 
 # 4 收藏清理
-adb shell sqlite3 /data/data/com.kcx.ufm/databases/favorites.db "select count(*) from favorites"
+adb shell sqlite3 /data/data/com.kuangcx.ufm/databases/favorites.db "select count(*) from favorites"
 
 # 5 升级
 # 打一个 v1.0.1 tag 触发 CI；装上旧版后在 App 内检查更新
@@ -5725,7 +5727,7 @@ git push -u origin main
 | §7.3 Actions | Task 14 |
 | §7.4 在线升级（含 24h 节流、60 次/小时限流） | Task 13（Step 6 的 `updateGate`）、Task 14 |
 | §8 测试策略 | 每个任务的单测 + Task 14 的 E2E 与真机验收 |
-| §10 风险（JDK 25 不可用） | Task 2 Step 1 直接装 JDK 17 |
+| §10 风险（JDK 25 不可用） | Task 2 Step 1 直接装 JDK 21 |
 
 **Review Focus 测试落点：**
 

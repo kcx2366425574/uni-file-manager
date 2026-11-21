@@ -71,7 +71,7 @@
 | GitHub CLI | `gh auth status` | 已登录 `kcx2366425574`，scope 含 `repo`、`workflow` |
 | HBuilderX | 查找安装目录 | 仅有 `AppData/Local/HBuilder X/cache` 与 `Roaming` 残留，**主程序未安装** |
 
-结论：**本机缺 Android SDK / JDK**，需要安装后才能本地构建 APK。已有 DevEco 的 JBR 25 可作备选，但 Capacitor 8 的 Android Gradle Plugin 对 JDK 有明确区间要求，若 JBR 25 不被接受则安装 JDK 17（见 §7.1）。
+结论：**本机缺 Android SDK / JDK**，需要安装后才能本地构建 APK。已有 DevEco 的 JBR 25 可作备选，但 Capacitor 8 的 Android Gradle Plugin 对 JDK 有明确区间要求，若 JBR 25 不被接受则安装 JDK 21（见 §7.1）。
 
 ---
 
@@ -256,17 +256,22 @@ CREATE TABLE favorites (
 
 顺序：
 
-1. 安装 JDK 17（Temurin）。
+1. 安装 JDK 21（Temurin）。
    - **已核实**：Capacitor 8.6.2 的 Android 模板用 `com.android.tools.build:gradle:8.13.0`，
      wrapper 分发 `gradle-8.14.3-all.zip`
      （来源：`@capacitor/cli@8.6.2` 包内 `assets/android-template.tar.gz` 解包后的
      `build.gradle:10` 与 `gradle/wrapper/gradle-wrapper.properties:3`）。
+   - **已核实**：`node_modules/@capacitor/android/capacitor/build.gradle:66-67` 硬编码
+     `sourceCompatibility JavaVersion.VERSION_21` / `targetCompatibility JavaVersion.VERSION_21`。
+     用 JDK 17 构建会报 `无效的源发行版: 21`（实测）。
    - **已核实**：Gradle 官方兼容表（https://docs.gradle.org/current/userguide/compatibility.html）
-     写明 Java 25 需要 Gradle 9.1.0+，Gradle 8.14 最高支持 Java 24。
-     因此 DevEco Studio 自带的 JBR 25 **不能**用于本工程，必须另装 JDK 17 或 21。
-2. 安装 Android `cmdline-tools` → `sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"`。
+     写明 Gradle 8.14 可运行于 Java 8～24；Java 25 需要 Gradle 9.1.0+。
+     因此 DevEco Studio 自带的 JBR 25 **不能**用于本工程；JDK 21 同时满足 Capacitor 的
+     `VERSION_21` 与 Gradle 8.14 的上限。
+2. 安装 Android `cmdline-tools` → `sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"`。
 3. 设置 `ANDROID_HOME`、`JAVA_HOME`，接受 licenses。
-4. 生成本地 `local.properties`（不入库）。
+4. 生成本地 `local.properties`（不入库）。Windows 下 `sdk.dir` 用正斜杠或转义反斜杠，
+   写成裸 `C:\Users\...` 会让 Gradle 报 `文件名、目录名或卷标语法不正确`（实测）。
 5. 首次 `./gradlew assembleDebug` 验证工具链。
 
 ### 7.2 签名
@@ -364,7 +369,7 @@ uni-file-manager/
 
 | 风险 | 影响 | 应对 |
 |---|---|---|
-| DevEco 自带 JBR 25 不能用于本工程 | 需另装 JDK | **已核实**：Gradle 8.14 最高支持 Java 24（Gradle 官方兼容表），模板 wrapper 为 8.14.3 → 直接安装 JDK 17，不浪费一次失败构建 |
+| DevEco 自带 JBR 25 不能用于本工程 | 需另装 JDK | **已核实**：Gradle 8.14 最高支持 Java 24（Gradle 官方兼容表），模板 wrapper 为 8.14.3 → 直接安装 JDK 21，不浪费一次失败构建 |
 | uni-app Vue3 包为 alpha 标签 | 可能有构建不稳 | 锁定具体版本（`3.0.0-alpha-5030720261117001`），锁 `package-lock.json`；若构建失败，改用稳定版 CLI 模板 |
 | Android 14+ 对 `MANAGE_EXTERNAL_STORAGE` 收紧 | 部分机型设置页不显示 | 设置页给出逐厂商的说明；无权限时降级模式必须有完整可用路径 |
 | SD 卡 `getDirectory()` 在部分机型返回 null | 无法枚举 SD 卡 | 回退到 `/storage/<UUID>` 扫描 `/proc/mounts` |

@@ -14,6 +14,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(FsPlugin::class.java)
         registerPlugin(OpenPlugin::class.java)
         registerPlugin(SharePlugin::class.java)
+        registerPlugin(GroupPlugin::class.java)
         super.onCreate(savedInstanceState)
         openPlugin = bridge.getPlugin("Open")?.instance as? OpenPlugin
         openPlugin?.accept(intent)

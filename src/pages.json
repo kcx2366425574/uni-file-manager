@@ -17,6 +17,18 @@
       "style": {
         "navigationBarTitleText": "打开文件"
       }
+    },
+    {
+      "path": "pages/groups/groups",
+      "style": {
+        "navigationBarTitleText": "照片分组"
+      }
+    },
+    {
+      "path": "pages/groups/detail",
+      "style": {
+        "navigationBarTitleText": "分组详情"
+      }
     }
   ],
   "globalStyle": {

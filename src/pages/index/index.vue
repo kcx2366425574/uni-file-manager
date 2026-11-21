@@ -4,12 +4,17 @@
       <text class="title">文件管理器</text>
       <text class="hint">权限已就绪</text>
       <button class="entry" @click="goFiles">浏览文件</button>
+      <button class="entry" @click="goGroups">照片分组</button>
     </view>
   </PermGate>
 </template>
 
 <script setup lang="ts">
 import PermGate from '../../components/PermGate.vue'
+
+function goGroups() {
+  uni.navigateTo({ url: '/pages/groups/groups' })
+}
 
 function goFiles() {
   uni.navigateTo({ url: '/pages/files/files' })

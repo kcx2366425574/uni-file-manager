@@ -16,5 +16,5 @@ defineEmits<{ (e: 'open', v: GroupPhoto): void; (e: 'select', v: GroupPhoto): vo
 
 <style>
 .grid { display: flex; flex-wrap: wrap; }
-.cell { width: 33.33%; aspect-ratio: 1; padding: 4rpx; box-sizing: border-box; }
+.cell { width: calc(100% / 3); height: 240rpx; display: inline-block; padding: 4rpx; box-sizing: border-box; position: relative; }
 </style>

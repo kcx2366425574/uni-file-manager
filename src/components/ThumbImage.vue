@@ -1,27 +1,47 @@
 <template>
-  <image v-if="src" class="thumb" :src="src" mode="aspectFill" lazy-load />
-  <view v-else class="thumb placeholder" />
+  <view class="dbg">
+    <img v-if="url" :src="url" class="pic" @load="onLoad" @error="onErr" />
+    <text class="t">{{ status }}</text>
+    <text class="u">{{ url }}</text>
+  </view>
 </template>
 
 <script setup lang="ts">
-import { Capacitor } from '@capacitor/core'
 import { ref, watch } from 'vue'
+import { thumbUrl } from '../native/media'
 
 const props = withDefaults(defineProps<{ path: string; maxPx?: number }>(), { maxPx: 256 })
-const src = ref('')
 
-// Task 8 replaces this with a native-generated thumbnail; until then the WebView serves the
-// original file through Capacitor's local server, which is correct but heavier.
+const url = ref('')
+const status = ref('waiting')
+
 watch(
   () => props.path,
-  (p) => {
-    src.value = p && Capacitor.isNativePlatform() ? Capacitor.convertFileSrc(p) : ''
+  async (p) => {
+    status.value = 'resolving'
+    if (!p) {
+      url.value = ''
+      status.value = 'no path'
+      return
+    }
+    try {
+      url.value = await thumbUrl(p, props.maxPx)
+      status.value = `got url len=${url.value.length}`
+    } catch (e) {
+      url.value = ''
+      status.value = 'error: ' + JSON.stringify(e)
+    }
   },
   { immediate: true }
 )
+
+function onLoad() { status.value = 'LOADED ' + url.value.slice(-20) }
+function onErr() { status.value = 'IMG ERROR ' + url.value.slice(-20) }
 </script>
 
 <style>
-.thumb { width: 100%; height: 100%; background: #1a1f24; border-radius: 8rpx; }
-.placeholder { background: #1a1f24; }
+.dbg { width: 100%; height: 100%; background: #1a1f24; overflow: hidden; }
+.pic { width: 100%; height: 100%; object-fit: cover; display: block; }
+.t { font-size: 16rpx; color: #22c55e; }
+.u { font-size: 12rpx; color: #6b7280; word-break: break-all; }
 </style>

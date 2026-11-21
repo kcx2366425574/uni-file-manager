@@ -29,6 +29,12 @@
       "style": {
         "navigationBarTitleText": "分组详情"
       }
+    },
+    {
+      "path": "pages/photos/photos",
+      "style": {
+        "navigationBarTitleText": "相册"
+      }
     }
   ],
   "globalStyle": {

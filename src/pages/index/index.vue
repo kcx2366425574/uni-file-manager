@@ -5,12 +5,17 @@
       <text class="hint">权限已就绪</text>
       <button class="entry" @click="goFiles">浏览文件</button>
       <button class="entry" @click="goGroups">照片分组</button>
+      <button class="entry" @click="goPhotos">相册</button>
     </view>
   </PermGate>
 </template>
 
 <script setup lang="ts">
 import PermGate from '../../components/PermGate.vue'
+
+function goPhotos() {
+  uni.navigateTo({ url: '/pages/photos/photos?kind=image' })
+}
 
 function goGroups() {
   uni.navigateTo({ url: '/pages/groups/groups' })

@@ -9,6 +9,11 @@
       <view v-if="!entries.length" class="empty"><text>{{ error || '空文件夹' }}</text></view>
     </scroll-view>
     <view class="fab" @click="showCreate">＋</view>
+    <view v-if="clipboard" class="pastebar">
+      <text class="pasteinfo">{{ clipboard.mode === 'cut' ? '剪切' : '复制' }} {{ clipboard.paths.length }} 项</text>
+      <text class="pastebtn" @click="paste">粘贴到此处</text>
+      <text class="pastecancel" @click="clipboard = null">取消</text>
+    </view>
     <ActionSheet :visible="sheet" :items="sheetItems" @pick="onPick" @close="sheet = false" />
   </view>
 </template>
@@ -28,6 +33,8 @@ const sort = ref<SortKey>('name')
 const asc = ref(true)
 const sheet = ref(false)
 const target = ref<FileEntry | null>(null)
+/** Clipboard for copy/cut. Cut keeps its contents until every item lands, so a partial failure is retryable. */
+const clipboard = ref<{ mode: 'copy' | 'cut'; paths: string[] } | null>(null)
 
 const sortLabel = computed(() => {
   const names: Record<SortKey, string> = { name: '名称', size: '大小', time: '时间', type: '类型' }
@@ -37,6 +44,8 @@ const sortLabel = computed(() => {
 const sheetItems = computed(() =>
   target.value
     ? [
+        { key: 'copy', label: '复制到剪贴板' },
+        { key: 'cut', label: '剪切到剪贴板' },
         { key: 'rename', label: '重命名' },
         { key: 'detail', label: '详情' },
         { key: 'delete', label: '删除', danger: true }
@@ -101,6 +110,11 @@ async function onPick(key: string) {
   sheet.value = false
   const t = target.value
   if (!t) return
+  if (key === 'copy' || key === 'cut') {
+    clipboard.value = { mode: key, paths: [t.path] }
+    uni.showToast({ title: '已放入剪贴板，进入目标文件夹后点粘贴', icon: 'none' })
+    return
+  }
   if (key === 'rename') {
     uni.showModal({
       title: '重命名',
@@ -140,6 +154,33 @@ async function onPick(key: string) {
   }
 }
 
+async function paste() {
+  const clip = clipboard.value
+  if (!clip) return
+  uni.showLoading({ title: clip.mode === 'cut' ? '正在移动' : '正在复制' })
+  try {
+    const res = clip.mode === 'cut'
+      ? await Fs.move({ paths: clip.paths, destDir: current.value })
+      : await Fs.copy({ paths: clip.paths, destDir: current.value })
+    uni.hideLoading()
+    const doneCount = (res.moved || res.copied || []).length
+    if (res.failed.length) {
+      uni.showModal({
+        title: '部分项目未完成',
+        content: `成功 ${doneCount} 项，失败 ${res.failed.length} 项（${describeError({ code: res.failed[0].code })}）。剪贴板已保留，可重试。`,
+        showCancel: false
+      })
+      return
+    }
+    uni.showToast({ title: `已完成 ${doneCount} 项`, icon: 'none' })
+    clipboard.value = null
+    load(current.value)
+  } catch (e) {
+    uni.hideLoading()
+    uni.showToast({ title: describeError(e), icon: 'none' })
+  }
+}
+
 onLoad((q) => { load((q && (q.path as string)) || '/storage/emulated/0') })
 </script>
 
@@ -151,4 +192,8 @@ onLoad((q) => { load((q && (q.path as string)) || '/storage/emulated/0') })
 .list { flex: 1; }
 .empty { padding: 80rpx; text-align: center; color: #6b7280; }
 .fab { position: fixed; right: 40rpx; bottom: 80rpx; width: 96rpx; height: 96rpx; border-radius: 50%; background: #3b82f6; color: #fff; font-size: 52rpx; display: flex; align-items: center; justify-content: center; }
+.pastebar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; padding: 24rpx 32rpx; background: #191d22; border-top: 1rpx solid #23282e; z-index: 11; }
+.pasteinfo { flex: 1; font-size: 26rpx; color: #9aa0a6; }
+.pastebtn { color: #3b82f6; font-size: 28rpx; margin-right: 32rpx; }
+.pastecancel { color: #6b7280; font-size: 26rpx; }
 </style>

@@ -7,6 +7,9 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.kuangcx.ufm.core.Entry
+import com.kuangcx.ufm.core.MoveEngine
+import com.kuangcx.ufm.core.MoveJournal
+import com.kuangcx.ufm.core.MoveState
 import com.kuangcx.ufm.core.PathUtil
 import com.kuangcx.ufm.core.SortKey
 import com.kuangcx.ufm.core.StorageVolumes
@@ -176,5 +179,81 @@ class FsPlugin : Plugin() {
         paths.forEach { p ->
             android.media.MediaScannerConnection.scanFile(context, arrayOf(p), null, null)
         }
+    }
+
+    // --- move / copy -------------------------------------------------------
+
+    private lateinit var journal: MoveJournal
+    private lateinit var engine: MoveEngine
+
+    override fun load() {
+        super.load()
+        journal = MoveJournal(java.io.File(context.filesDir, "journal"))
+        engine = MoveEngine(journal) { a, b ->
+            volumeRootOf(a.absolutePath) != volumeRootOf(b.absolutePath)
+        }
+        // Finish or roll back whatever a previous process left in flight.
+        bridge.execute {
+            engine.recover().forEach { r ->
+                if (r.state == MoveState.DONE) lightRescan(r.src, r.dst)
+            }
+        }
+    }
+
+    /** Longest matching volume root, so /storage/XXXX-XXXX wins over /storage/emulated/0. */
+    private fun volumeRootOf(path: String): String =
+        StorageVolumes.list(context)
+            .filter { path == it.path || path.startsWith(it.path + "/") }
+            .maxByOrNull { it.path.length }
+            ?.path ?: "/"
+
+    @PluginMethod
+    fun move(call: PluginCall) {
+        val paths = stringList(call, "paths")
+        val destDir = call.getString("destDir")
+        bridge.execute { transfer(call, paths, destDir, isMove = true) }
+    }
+
+    @PluginMethod
+    fun copy(call: PluginCall) {
+        val paths = stringList(call, "paths")
+        val destDir = call.getString("destDir")
+        bridge.execute { transfer(call, paths, destDir, isMove = false) }
+    }
+
+    /** JSArray.toList() is List<Any?> and defeats inference, so read by index. */
+    private fun stringList(call: PluginCall, key: String): List<String> {
+        val arr = call.getArray(key)
+        val out = ArrayList<String>()
+        if (arr != null) { for (i in 0 until arr.length()) out.add(arr.getString(i)) }
+        return out
+    }
+
+    private fun transfer(call: PluginCall, paths: List<String>, destDir: String?, isMove: Boolean) {
+        if (!Perm.ensureAllFiles(context)) { call.reject("no all-files access", "E_PERM"); return }
+        val dest = try { PathUtil.safe(destDir) } catch (e: Exception) {
+            call.reject("bad destination", "E_BAD_NAME"); return
+        }
+        if (!dest.isDirectory) { call.reject("destination is not a directory", "E_NOENT"); return }
+        val done = JSArray()
+        val failed = JSArray()
+        for (p in paths) {
+            try {
+                val src = PathUtil.safe(p)
+                val r = if (isMove) engine.moveFile(src, dest) else engine.copyFile(src, dest)
+                if (r.ok) {
+                    done.put(p)
+                    lightRescan(src.absolutePath, java.io.File(dest, src.name).absolutePath)
+                } else {
+                    failed.put(errObj(p, r.code ?: "E_IO"))
+                }
+            } catch (e: Exception) {
+                failed.put(errObj(p, "E_IO"))
+            }
+        }
+        call.resolve(JSObject().apply {
+            put(if (isMove) "moved" else "copied", done)
+            put("failed", failed)
+        })
     }
 }

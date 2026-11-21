@@ -1,11 +1,15 @@
 <template>
-  <view class="page">
-    <text class="title">文件管理器</text>
-    <text class="hint">骨架已就绪</text>
-  </view>
+  <PermGate>
+    <view class="page">
+      <text class="title">文件管理器</text>
+      <text class="hint">权限已就绪</text>
+    </view>
+  </PermGate>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import PermGate from '../../components/PermGate.vue'
+</script>
 
 <style>
 .page { padding: 48rpx; }

@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -47,6 +48,36 @@ class ShellPlugin : Plugin() {
             )
         }
         call.resolve()
+    }
+
+    @PluginMethod
+    fun storageStats(call: PluginCall) {
+        bridge.execute {
+            try {
+                val vols = com.kuangcx.ufm.core.StorageVolumes.list(context)
+                val arr = JSArray()
+                var total = 0L
+                var free = 0L
+                vols.forEach { v ->
+                    val sf = android.os.StatFs(v.path)
+                    val t = sf.totalBytes
+                    val f = sf.availableBytes
+                    total += t
+                    free += f
+                    arr.put(JSObject().apply {
+                        put("label", v.label); put("totalBytes", t); put("freeBytes", f)
+                    })
+                }
+                call.resolve(JSObject().apply {
+                    put("totalBytes", total)
+                    put("freeBytes", free)
+                    put("usedBytes", total - free)
+                    put("volumes", arr)
+                })
+            } catch (e: Exception) {
+                call.reject(e.message ?: "stats failed", "E_IO", e)
+            }
+        }
     }
 
     @PluginMethod

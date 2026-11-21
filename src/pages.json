@@ -41,6 +41,18 @@
       "style": {
         "navigationBarTitleText": "收藏"
       }
+    },
+    {
+      "path": "pages/recent/recent",
+      "style": {
+        "navigationBarTitleText": "最近文件"
+      }
+    },
+    {
+      "path": "pages/settings/settings",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
     }
   ],
   "globalStyle": {

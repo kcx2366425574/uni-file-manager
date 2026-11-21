@@ -20,8 +20,9 @@ android {
     signingConfigs {
         release {
             // CI decodes the keystore here; locally the file must exist or release builds stop with a clear message.
-            def ksPath = System.getenv('KEYSTORE_PATH') ?: 'release.keystore'
-            storeFile file(ksPath)
+            // Resolved against the module dir by default; KEYSTORE_PATH is taken relative to android/app.
+            def ksPath = System.getenv('KEYSTORE_PATH') ?: '../../release.keystore'
+            storeFile rootProject.file(ksPath)
             storePassword System.getenv('KEYSTORE_PASSWORD')
             keyAlias System.getenv('KEY_ALIAS')
             keyPassword System.getenv('KEY_PASSWORD')

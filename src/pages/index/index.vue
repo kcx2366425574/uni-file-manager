@@ -20,6 +20,7 @@
         <view class="qitem" @click="go('/pages/favorites/favorites')"><text>⭐ 我的收藏</text></view>
         <view class="qitem" @click="go('/pages/recent/recent')"><text>🕘 最近文件</text></view>
         <view class="qitem" @click="goDownload"><text>⬇️ 下载目录</text></view>
+        <view class="qitem" @click="go('/pages/cleanup/cleanup')"><text>🧹 整理照片</text></view>
         <view class="qitem" @click="go('/pages/settings/settings')"><text>⚙️ 设置</text></view>
       </view>
     </view>

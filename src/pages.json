@@ -53,6 +53,12 @@
       "style": {
         "navigationBarTitleText": "设置"
       }
+    },
+    {
+      "path": "pages/cleanup/cleanup",
+      "style": {
+        "navigationBarTitleText": "整理照片"
+      }
     }
   ],
   "globalStyle": {
